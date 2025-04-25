@@ -1,0 +1,10 @@
+run:
+  deadline: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+  fast: false
