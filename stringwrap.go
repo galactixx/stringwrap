@@ -1,4 +1,4 @@
-package main
+package stringwrap
 
 import (
 	"bytes"
@@ -21,8 +21,8 @@ func isWordyGrapheme(grapheme string) bool {
 }
 
 type WrappedString struct {
-	OriginalLine int
-	CurrentLine  int
+	OrigLineNum int
+	CurLineNum  int
 }
 
 type WrappedStringSeq struct{ WrappedLines []WrappedString }
@@ -73,24 +73,24 @@ func (g *graphemeWordIter) iter(lineWidth int, limit int) {
 // any wrapping and taking wrapping into account
 type positions struct {
 	// the current character number within a string line
-	curLineWidth      int
-	curStringLineNum  int
-	origStringLineNum int
-	curWordWidth      int
+	curLineWidth int
+	curLineNum   int
+	origLineNum  int
+	curWordWidth int
 }
 
 func (p positions) curWritePosition() int { return p.curWordWidth + p.curLineWidth }
 
 // incrementCurLine increases the current string line number
-func (p *positions) incrementCurLine() { p.curStringLineNum += 1 }
+func (p *positions) incrementCurLine() { p.curLineNum += 1 }
 
 // incrementOrigLine increases the original line number
-func (p *positions) incrementOrigLine() { p.origStringLineNum += 1 }
+func (p *positions) incrementOrigLine() { p.origLineNum += 1 }
 
 // newWrappedString creates a WrappedString with both original and current line.
 func (p positions) newWrappedString() WrappedString {
 	return WrappedString{
-		OriginalLine: p.origStringLineNum, CurrentLine: p.curStringLineNum,
+		OrigLineNum: p.origLineNum, CurLineNum: p.curLineNum,
 	}
 }
 
@@ -225,10 +225,10 @@ func StringWrap(
 
 	// manage the current string line number taking into account wrapping
 	var positions positions = positions{
-		curLineWidth:      0,
-		curStringLineNum:  1,
-		origStringLineNum: 1,
-		curWordWidth:      0,
+		curLineWidth: 0,
+		curLineNum:   1,
+		origLineNum:  1,
+		curWordWidth: 0,
 	}
 
 	// buffer to manage the wrapped output that results from the function

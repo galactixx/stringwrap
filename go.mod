@@ -1,6 +1,6 @@
 module github.com/galactixx/stringwrap
 
-go 1.24.1
+go 1.21
 
 require github.com/mattn/go-runewidth v0.0.16
 
