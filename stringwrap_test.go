@@ -3,6 +3,8 @@ package stringwrap
 import (
 	"strings"
 	"testing"
+
+	"github.com/mattn/go-runewidth"
 )
 
 func TestStringWrapBasic(t *testing.T) {
@@ -19,9 +21,9 @@ func TestStringWrapBasic(t *testing.T) {
 		t.Fatalf("expected wrapped string to be non-empty")
 	}
 
-	lines := strings.Split(strings.TrimSpace(wrapped), "\n")
+	lines := strings.Split(wrapped, "\n")
 	for _, line := range lines {
-		if len(line) > limit {
+		if runewidth.StringWidth(line) > limit {
 			t.Errorf("line exceeds limit: %q", line)
 		}
 	}
@@ -45,27 +47,21 @@ func TestStringWrapSplitLongWord(t *testing.T) {
 		t.Fatalf("expected wrapped string to be non-empty")
 	}
 
-	lines := strings.Split(strings.TrimSpace(wrapped), "\n")
-	// +1 for optional hyphen
+	lines := strings.Split(wrapped, "\n")
 	for _, line := range lines {
-		if len(line) > limit+1 {
+		if runewidth.StringWidth(line) > limit {
 			t.Errorf("line exceeds limit: %q", line)
 		}
 	}
 
-	if len(seq.WrappedLines) < 2 {
-		t.Errorf("expected the long word to be split across multiple lines")
+	if len(seq.WrappedLines) != 4 {
+		t.Errorf("expected the long word to be split across four lines")
 	}
 
-	foundSplit := false
-	for _, ws := range seq.WrappedLines {
-		if ws.EndsWithSplitWord {
-			foundSplit = true
-			break
-		}
-	}
-	if !foundSplit {
-		t.Errorf("expected at least one line to end with a split word")
+	if !seq.WrappedLines[0].EndsWithSplitWord ||
+		!seq.WrappedLines[1].EndsWithSplitWord ||
+		!seq.WrappedLines[2].EndsWithSplitWord {
+		t.Errorf("expected the first three lines to end with a split word")
 	}
 }
 
@@ -91,7 +87,7 @@ func TestStringWrapTabHandling(t *testing.T) {
 	}
 
 	// tab should be expanded into spaces
-	if !strings.Contains(wrapped, "   ") {
+	if wrapped != "hello   world" {
 		t.Errorf("expected tab character to be expanded into spaces")
 	}
 }
@@ -106,8 +102,7 @@ func TestStringWrapANSIHandling(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should still contain the ANSI escape sequences
-	if !strings.Contains(wrapped, "\x1b[31m") || !strings.Contains(wrapped, "\x1b[0m") {
+	if wrapped != "\x1b[31mred\x1b[0m text \nnormal" {
 		t.Errorf("expected ANSI codes to be preserved")
 	}
 }

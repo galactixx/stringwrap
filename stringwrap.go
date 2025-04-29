@@ -67,6 +67,10 @@ type WrappedStringSeq struct {
 	Limit            int
 }
 
+func (s *WrappedStringSeq) lastWrappedLine() WrappedString {
+	return s.WrappedLines[len(s.WrappedLines)-1]
+}
+
 func (s *WrappedStringSeq) appendWrappedSeq(wrapped WrappedString) {
 	s.WrappedLines = append(s.WrappedLines, wrapped)
 }
@@ -142,9 +146,9 @@ type wordWrapConfig struct {
 // temporary slice variable that resets after every line is
 // established
 type wrapStateMachine struct {
-	lineBuffer    bytes.Buffer
-	wordBuffer    bytes.Buffer
-	wrappedBuffer bytes.Buffer
+	lineBuffer bytes.Buffer
+	wordBuffer bytes.Buffer
+	buffer     bytes.Buffer
 
 	pos              *positions
 	wrappedStringSeq *WrappedStringSeq
@@ -188,11 +192,11 @@ func (w *wrapStateMachine) writeSoftLine(endsSplit bool) {
 	w.writeLine(false, endsSplit)
 }
 
-// writeLine writes the current lineBuffer to the wrappedBuffer with a
+// writeLine writes the current lineBuffer to the buffer with a
 // newline, then resets it.
 func (w *wrapStateMachine) writeLine(hardBreak bool, endsSplit bool) {
 	lineToWrite := w.lineBuffer.String() + "\n"
-	w.wrappedBuffer.WriteString(lineToWrite)
+	w.buffer.WriteString(lineToWrite)
 	w.pos.origLineSegment += 1
 	w.lineBuffer.Reset()
 	origEndLineByte := w.pos.origStartLineByte + len(lineToWrite)
@@ -277,7 +281,6 @@ func stringWrap(
 	}
 
 	var wrappedStringSeq WrappedStringSeq = WrappedStringSeq{
-		WrappedLines:     make([]WrappedString, 0),
 		WordSplitAllowed: splitWord,
 		TabSize:          tabSize,
 		Limit:            limit,
@@ -285,12 +288,8 @@ func stringWrap(
 
 	// manage the current string line number taking into account wrapping
 	var positions positions = positions{
-		curLineWidth:      0,
-		curLineNum:        1,
-		origLineNum:       1,
-		curWordWidth:      0,
-		origLineSegment:   0,
-		origStartLineByte: 0,
+		curLineNum:  1,
+		origLineNum: 1,
 	}
 
 	// buffer to manage the wrapped output that results from the function
@@ -321,7 +320,8 @@ func stringWrap(
 	// iterate through each rune in the string
 	for idx < len(str) {
 		r, rSize := utf8.DecodeRuneInString(str[idx:])
-		if rng := ansiRanges.nextRange(); rng != nil {
+		if rng := ansiRanges.nextRange(); rng != nil && idx == rng.start {
+			stateMachine.flushWordBuffer()
 			stateMachine.writeANSIToLine(str[rng.start:rng.end])
 			state = -1
 			idx = rng.end
@@ -370,8 +370,16 @@ func stringWrap(
 
 	// write word and line buffers after iteration is done
 	stateMachine.flushWordBuffer()
-	stateMachine.writeSoftLine(false)
-	return stateMachine.wrappedBuffer.String(), &wrappedStringSeq, nil
+	if stateMachine.lineBuffer.Len() > 0 {
+		stateMachine.writeSoftLine(false)
+	}
+
+	// Remove the last new line from the wrapped buffer
+	lastWrappedLine := wrappedStringSeq.lastWrappedLine()
+	if !lastWrappedLine.IsHardBreak {
+		stateMachine.buffer.Truncate(stateMachine.buffer.Len() - 1)
+	}
+	return stateMachine.buffer.String(), &wrappedStringSeq, nil
 }
 
 func StringWrap(
