@@ -196,10 +196,17 @@ func (w *wrapStateMachine) writeRuneToWord(r rune) {
 	w.wordBuffer.WriteRune(r)
 }
 
-// writeStrToLine appends the given string directly to the lineBuffer.
-func (w *wrapStateMachine) writeStrToLine(str string) {
-	w.flushLineBuffer(len(str))
-	w.lineBuffer.WriteString(str)
+// writeTabToLine appends the given tab size in spaces to the lineBuffer.
+func (w *wrapStateMachine) writeTabToLine() int {
+	adjTabSize := w.config.tabSize - (w.pos.curLineWidth % w.config.tabSize)
+	w.flushLineBuffer(adjTabSize)
+
+	if w.lineBuffer.Len() == 0 {
+		adjTabSize = w.config.tabSize
+	}
+	tabSpaces := strings.Repeat(" ", adjTabSize)
+	w.lineBuffer.WriteString(tabSpaces)
+	return adjTabSize
 }
 
 func (w *wrapStateMachine) writeHardLine() { w.writeLine(true, false) }
@@ -364,8 +371,7 @@ func stringWrap(
 				positions.origStartLineRune = 0
 				positions.origLineSegment = 0
 			case '\t':
-				adjTabSize := tabSize - (positions.curLineWidth % tabSize)
-				stateMachine.writeStrToLine(strings.Repeat(" ", adjTabSize))
+				adjTabSize := stateMachine.writeTabToLine()
 				positions.curLineWidth += adjTabSize
 			}
 			state = -1

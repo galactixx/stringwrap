@@ -16,14 +16,14 @@ func TestStringWrapBasic(t *testing.T) {
 
 	wrapped, seq, err := StringWrap(input, limit, tabSize)
 	assert.Nil(t, err)
-	assert.NotEqual(t, wrapped, "")
+	assert.NotEqual(t, "", wrapped)
 
 	lines := strings.Split(wrapped, "\n")
 	for _, line := range lines {
 		assert.LessOrEqual(t, runewidth.StringWidth(line), limit)
 	}
 
-	assert.Equal(t, len(seq.WrappedLines), len(lines))
+	assert.Equal(t, len(lines), len(seq.WrappedLines))
 }
 
 func TestStringWrapSplitLongWord(t *testing.T) {
@@ -33,14 +33,14 @@ func TestStringWrapSplitLongWord(t *testing.T) {
 
 	wrapped, seq, err := StringWrapSplit(input, limit, tabSize)
 	assert.Nil(t, err)
-	assert.NotEqual(t, wrapped, "")
+	assert.NotEqual(t, "", wrapped)
 
 	lines := strings.Split(wrapped, "\n")
 	for _, line := range lines {
 		assert.LessOrEqual(t, runewidth.StringWidth(line), limit)
 	}
 
-	assert.Equal(t, len(seq.WrappedLines), 4)
+	assert.Equal(t, len(lines), len(seq.WrappedLines))
 	assert.True(t, (seq.WrappedLines[0].EndsWithSplitWord &&
 		seq.WrappedLines[1].EndsWithSplitWord &&
 		seq.WrappedLines[2].EndsWithSplitWord),
@@ -65,7 +65,20 @@ func TestStringWrapTabHandling(t *testing.T) {
 	assert.Nil(t, err)
 
 	// tab should be expanded into spaces
-	assert.Equal(t, wrapped, "hello   world")
+	assert.Equal(t, "hello   world", wrapped)
+}
+
+func TestStringWrapTabSplit(t *testing.T) {
+	input := "hello\tworld"
+	limit := 7
+	tabSize := 4
+
+	wrapped, _, err := StringWrap(input, limit, tabSize)
+	assert.Nil(t, err)
+
+	fmt.Printf("%q", wrapped)
+	// tab should not be split across lines
+	assert.Equal(t, "hello\n    \nworld", wrapped)
 }
 
 func TestStringWrapANSIHandling(t *testing.T) {
@@ -75,7 +88,17 @@ func TestStringWrapANSIHandling(t *testing.T) {
 
 	wrapped, _, err := StringWrap(input, limit, tabSize)
 	assert.Nil(t, err)
-	assert.Equal(t, wrapped, "\x1b[31mred\x1b[0m text \nnormal")
+	assert.Equal(t, "\x1b[31mred\x1b[0m text \nnormal", wrapped)
+}
+
+func TestStringWrapSplitNearPunc(t *testing.T) {
+	input := "Hello."
+	limit := 5
+	tabSize := 4
+
+	wrapped, _, err := StringWrapSplit(input, limit, tabSize)
+	assert.Nil(t, err)
+	assert.Equal(t, "Hell-\no.", wrapped)
 }
 
 func TestWrappedStringSeq(t *testing.T) {
@@ -84,10 +107,10 @@ func TestWrappedStringSeq(t *testing.T) {
 	tabSize := 4
 
 	wrapped, seq, _ := StringWrap(input, limit, tabSize)
-	assert.Equal(t, wrapped, "Hello \nworld!\nLine two\nwith \n🌟stars\nFinal")
+	assert.Equal(t, "Hello \nworld!\nLine two\nwith \n🌟stars\nFinal", wrapped)
 
 	lines := strings.Split(wrapped, "\n")
-	assert.Equal(t, len(seq.WrappedLines), len(lines))
+	assert.Equal(t, len(lines), len(seq.WrappedLines))
 	tests := []WrappedString{
 		{
 			CurLineNum:        1,
@@ -173,12 +196,12 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 	wrapped, seq, _ := StringWrapSplit(input, limit, tabSize)
 	assert.Equal(
 		t,
-		wrapped,
 		"Supercali-\nfragilist-\nicexpiali-\ndocious is\na long w-\nord often \nused to t-\nest wrapp-\ning behav-\nior.",
+		wrapped,
 	)
 
 	lines := strings.Split(wrapped, "\n")
-	assert.Equal(t, len(seq.WrappedLines), len(lines))
+	assert.Equal(t, len(lines), len(seq.WrappedLines))
 	tests := []WrappedString{
 		{
 			CurLineNum:        1,
