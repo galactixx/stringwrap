@@ -39,16 +39,13 @@ type WrappedString struct {
 	OrigRuneOffset LineOffset
 	// The grapheme cluster start and end offsets of this
 	// segment in the original unwrapped string.
-	OrigGraphemeOffset LineOffset
+	// OrigGraphemeOffset LineOffset
 	// Which segment number this is within the original line
 	// (first, second, etc.).
 	SegmentInOrig int
 	// Whether the segment fits entirely within the wrapping
 	// limit.
 	NotWithinLimit bool
-	// Optional reason why the segment was considered not
-	// within limit (e.g., soft break, hard break).
-	NotWithinLimitReason *string
 	// Whether the wrap was due to a hard break (newline)
 	// instead of word wrapping.
 	IsHardBreak bool
@@ -122,6 +119,23 @@ type positions struct {
 	curWordWidth      int
 	origLineSegment   int
 	origStartLineByte int
+	origStartLineRune int
+	leadingSpaces     int
+}
+
+func (p positions) getEndLineRune(line string) (int, LineOffset) {
+	endLine := p.endLineCalc(p.origStartLineRune, utf8.RuneCountInString(line))
+	return endLine, LineOffset{Start: p.origStartLineRune, End: endLine}
+}
+
+func (p positions) getEndLineByte(line string) (int, LineOffset) {
+	endLine := p.endLineCalc(p.origStartLineByte, len(line))
+	return endLine, LineOffset{Start: p.origStartLineByte, End: endLine}
+}
+
+func (p positions) endLineCalc(curCount int, lineCount int) int {
+	origEndLine := curCount + lineCount - 1
+	return origEndLine + p.leadingSpaces
 }
 
 func (p positions) curWritePosition() int { return p.curWordWidth + p.curLineWidth }
@@ -167,6 +181,8 @@ func (w *wrapStateMachine) writeSpaceToLine(r rune) {
 
 	if w.pos.curLineWidth > 0 {
 		w.lineBuffer.WriteRune(r)
+	} else {
+		w.pos.leadingSpaces += 1
 	}
 }
 
@@ -199,15 +215,14 @@ func (w *wrapStateMachine) writeLine(hardBreak bool, endsSplit bool) {
 	w.buffer.WriteString(lineToWrite)
 	w.pos.origLineSegment += 1
 	w.lineBuffer.Reset()
-	origEndLineByte := w.pos.origStartLineByte + len(lineToWrite)
-	origByteOffset := LineOffset{
-		Start: w.pos.origStartLineByte, End: origEndLineByte,
-	}
+	origEndLineByte, origByteOffset := w.pos.getEndLineByte(lineToWrite)
+	origEndLineRune, origRuneOffset := w.pos.getEndLineRune(lineToWrite)
 
 	wrappedString := WrappedString{
 		OrigLineNum:       w.pos.origLineNum,
 		CurLineNum:        w.pos.curLineNum,
 		OrigByteOffset:    origByteOffset,
+		OrigRuneOffset:    origRuneOffset,
 		SegmentInOrig:     w.pos.origLineSegment,
 		NotWithinLimit:    w.pos.curLineWidth > w.config.limit,
 		IsHardBreak:       hardBreak,
@@ -217,9 +232,11 @@ func (w *wrapStateMachine) writeLine(hardBreak bool, endsSplit bool) {
 	w.wrappedStringSeq.appendWrappedSeq(wrappedString)
 	w.pos.incrementCurLine()
 	w.pos.origStartLineByte = origEndLineByte
+	w.pos.origStartLineRune = origEndLineRune
 
 	// since coming to end of a line, reset char counter to zero
 	w.pos.curLineWidth = 0
+	w.pos.leadingSpaces = 0
 }
 
 // writeWord moves the contents of the wordBuffer into the lineBuffer,
@@ -257,6 +274,7 @@ func (w *wrapStateMachine) flushWordBuffer() {
 			if gIter.needsHyphen() {
 				w.lineBuffer.WriteRune('-')
 			}
+			w.pos.curLineWidth += gIter.subWordWidth
 			w.writeSoftLine(gIter.needsHyphen())
 			w.wordBuffer.Next(gIter.subWordBuffer.Len())
 			w.pos.curWordWidth = runewidth.StringWidth(w.wordBuffer.String())
@@ -343,6 +361,7 @@ func stringWrap(
 				stateMachine.writeHardLine()
 				positions.incrementOrigLine()
 				positions.origStartLineByte = 0
+				positions.origStartLineRune = 0
 				positions.origLineSegment = 0
 			case '\t':
 				adjTabSize := tabSize - (positions.curLineWidth % tabSize)

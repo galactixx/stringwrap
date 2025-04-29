@@ -92,6 +92,8 @@ func TestWrappedStringSeq(t *testing.T) {
 		{
 			CurLineNum:        1,
 			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 0, End: 6},
+			OrigRuneOffset:    LineOffset{Start: 0, End: 6},
 			SegmentInOrig:     1,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
@@ -101,6 +103,8 @@ func TestWrappedStringSeq(t *testing.T) {
 		{
 			CurLineNum:        2,
 			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 6, End: 12},
+			OrigRuneOffset:    LineOffset{Start: 6, End: 12},
 			SegmentInOrig:     2,
 			NotWithinLimit:    false,
 			IsHardBreak:       true,
@@ -110,6 +114,8 @@ func TestWrappedStringSeq(t *testing.T) {
 		{
 			CurLineNum:        3,
 			OrigLineNum:       2,
+			OrigByteOffset:    LineOffset{Start: 0, End: 8},
+			OrigRuneOffset:    LineOffset{Start: 0, End: 8},
 			SegmentInOrig:     1,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
@@ -119,6 +125,8 @@ func TestWrappedStringSeq(t *testing.T) {
 		{
 			CurLineNum:        4,
 			OrigLineNum:       2,
+			OrigByteOffset:    LineOffset{Start: 8, End: 14},
+			OrigRuneOffset:    LineOffset{Start: 8, End: 14},
 			SegmentInOrig:     2,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
@@ -128,6 +136,8 @@ func TestWrappedStringSeq(t *testing.T) {
 		{
 			CurLineNum:        5,
 			OrigLineNum:       2,
+			OrigByteOffset:    LineOffset{Start: 14, End: 23},
+			OrigRuneOffset:    LineOffset{Start: 14, End: 20},
 			SegmentInOrig:     3,
 			NotWithinLimit:    false,
 			IsHardBreak:       true,
@@ -137,6 +147,8 @@ func TestWrappedStringSeq(t *testing.T) {
 		{
 			CurLineNum:        6,
 			OrigLineNum:       3,
+			OrigByteOffset:    LineOffset{Start: 0, End: 5},
+			OrigRuneOffset:    LineOffset{Start: 0, End: 5},
 			SegmentInOrig:     1,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
@@ -148,13 +160,142 @@ func TestWrappedStringSeq(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("Wrapped String Test %d", idx+1), func(t *testing.T) {
 			wrappedLine := seq.WrappedLines[idx]
-			assert.Equal(t, tt.CurLineNum, wrappedLine.CurLineNum)
-			assert.Equal(t, tt.OrigLineNum, wrappedLine.OrigLineNum)
-			assert.Equal(t, tt.SegmentInOrig, wrappedLine.SegmentInOrig)
-			assert.Equal(t, tt.NotWithinLimit, wrappedLine.NotWithinLimit)
-			assert.Equal(t, tt.IsHardBreak, wrappedLine.IsHardBreak)
-			assert.Equal(t, tt.EndsWithSplitWord, wrappedLine.EndsWithSplitWord)
-			assert.Equal(t, tt.Width, wrappedLine.Width)
+			assert.ObjectsAreEqual(tt, wrappedLine)
+		})
+	}
+}
+
+func TestWrappedStringSplitSeq(t *testing.T) {
+	input := "Supercalifragilisticexpialidocious is a long word often used to test wrapping behavior."
+	limit := 10
+	tabSize := 4
+
+	wrapped, seq, _ := StringWrapSplit(input, limit, tabSize)
+	assert.Equal(
+		t,
+		wrapped,
+		"Supercali-\nfragilist-\nicexpiali-\ndocious is\na long w-\nord often \nused to t-\nest wrapp-\ning behav-\nior.",
+	)
+
+	lines := strings.Split(wrapped, "\n")
+	assert.Equal(t, len(seq.WrappedLines), len(lines))
+	tests := []WrappedString{
+		{
+			CurLineNum:        1,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 0, End: 10},
+			OrigRuneOffset:    LineOffset{Start: 0, End: 10},
+			SegmentInOrig:     1,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             10,
+			EndsWithSplitWord: true,
+		},
+		{
+			CurLineNum:        2,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 10, End: 20},
+			OrigRuneOffset:    LineOffset{Start: 10, End: 20},
+			SegmentInOrig:     2,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             10,
+			EndsWithSplitWord: true,
+		},
+		{
+			CurLineNum:        3,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 20, End: 30},
+			OrigRuneOffset:    LineOffset{Start: 20, End: 30},
+			SegmentInOrig:     3,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             10,
+			EndsWithSplitWord: true,
+		},
+		{
+			CurLineNum:        4,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 30, End: 40},
+			OrigRuneOffset:    LineOffset{Start: 30, End: 40},
+			SegmentInOrig:     4,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             10,
+			EndsWithSplitWord: false,
+		},
+		{
+			CurLineNum:        5,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 40, End: 50},
+			OrigRuneOffset:    LineOffset{Start: 40, End: 50},
+			SegmentInOrig:     5,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             10,
+			EndsWithSplitWord: true,
+		},
+		{
+			CurLineNum:        6,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 50, End: 60},
+			OrigRuneOffset:    LineOffset{Start: 50, End: 60},
+			SegmentInOrig:     6,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             10,
+			EndsWithSplitWord: false,
+		},
+		{
+			CurLineNum:        7,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 60, End: 70},
+			OrigRuneOffset:    LineOffset{Start: 60, End: 70},
+			SegmentInOrig:     7,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             10,
+			EndsWithSplitWord: true,
+		},
+		{
+			CurLineNum:        8,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 70, End: 80},
+			OrigRuneOffset:    LineOffset{Start: 70, End: 80},
+			SegmentInOrig:     8,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             10,
+			EndsWithSplitWord: true,
+		},
+		{
+			CurLineNum:        9,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 80, End: 90},
+			OrigRuneOffset:    LineOffset{Start: 80, End: 90},
+			SegmentInOrig:     9,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             10,
+			EndsWithSplitWord: true,
+		},
+		{
+			CurLineNum:        10,
+			OrigLineNum:       1,
+			OrigByteOffset:    LineOffset{Start: 90, End: 94},
+			OrigRuneOffset:    LineOffset{Start: 90, End: 94},
+			SegmentInOrig:     10,
+			NotWithinLimit:    false,
+			IsHardBreak:       false,
+			Width:             4,
+			EndsWithSplitWord: false,
+		},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("Wrapped String Test %d", idx+1), func(t *testing.T) {
+			wrappedLine := seq.WrappedLines[idx]
+			assert.ObjectsAreEqual(tt, wrappedLine)
 		})
 	}
 }
