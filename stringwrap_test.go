@@ -101,6 +101,16 @@ func TestStringWrapSplitNearPunc(t *testing.T) {
 	assert.Equal(t, "Hell-\no.", wrapped)
 }
 
+func TestStringWrapHardBreak(t *testing.T) {
+	input := "Hello.\nThis is \ntesting explicit\n new lines."
+	limit := 30
+	tabSize := 4
+
+	wrapped, _, err := StringWrap(input, limit, tabSize)
+	assert.Nil(t, err)
+	assert.Equal(t, 4, len(strings.Split(wrapped, "\n")))
+}
+
 func TestWrappedStringSeq(t *testing.T) {
 	input := "Hello world!\nLine two with 🌟stars\nFinal"
 	limit := 8
