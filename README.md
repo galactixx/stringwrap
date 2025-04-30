@@ -1,4 +1,6 @@
-![CodeScout Logo](./docs/logo.png)
+<p align="center">
+  <img src="/docs/logo.png" alt="stringwrap logo" width="525"/>
+</p>
 
 Stringwrap is a Go package for wrapping strings by visual width with optional word splitting and full ANSI + grapheme cluster support. Designed for precision line-wrapping, ideal for terminal output, formatted logs, or editors that require accurate metadata per line segment.
 
