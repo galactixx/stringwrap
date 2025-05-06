@@ -43,9 +43,8 @@ fmt.Println(wrapped)
 
 #### Output:
 ```text
-Hello
-world!
-🌟
+Hello 
+world! 🌟
 ```
 
 ### String Wrapping with Word Splitting
@@ -58,12 +57,10 @@ fmt.Println(wrapped)
 
 #### Output:
 ```text
-Super-
-calif-
-ragili-
-sticex-
-pialid-
-ocious
+Supercali-
+fragilist-
+icexpiali-
+docious
 ```
 
 ### Accessing the Metadata
