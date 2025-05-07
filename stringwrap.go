@@ -45,6 +45,9 @@ type WrappedString struct {
 	// Which segment number this is within the original line
 	// (first, second, etc.).
 	SegmentInOrig int
+	// Whether this segment is the last from the original
+	// ilne within the unwrapped string.
+	LastSegmentInOrig bool
 	// Whether the segment fits entirely within the wrapping
 	// limit.
 	NotWithinLimit bool
@@ -75,8 +78,8 @@ type WrappedStringSeq struct {
 }
 
 // lastWrappedLine pulls the last wrapped line that has been parsed
-func (s *WrappedStringSeq) lastWrappedLine() WrappedString {
-	return s.WrappedLines[len(s.WrappedLines)-1]
+func (s *WrappedStringSeq) lastWrappedLine() *WrappedString {
+	return &s.WrappedLines[len(s.WrappedLines)-1]
 }
 
 // appendWrappedSeq adds a new WrappedString to the existing slice
@@ -144,17 +147,10 @@ type positions struct {
 	leadingSpaces     int
 }
 
-// reset original line information after a hard break
-func (p *positions) hardBreakReset() {
-	p.origStartLineByte = 0
-	p.origStartLineRune = 0
-	p.origLineSegment = 0
-}
-
-// getEndLineRune calculates the end rune index and offset
-func (p positions) getEndLineRune(line string) (int, LineOffset) {
-	endLine := p.endLineCalc(p.origStartLineRune, utf8.RuneCountInString(line))
-	return endLine, LineOffset{Start: p.origStartLineRune, End: endLine}
+// endLineCalc calculates the end byte/rune index
+func (p positions) endLineCalc(curCount int, lineCount int) int {
+	origEndLine := curCount + lineCount - 1
+	return origEndLine + p.leadingSpaces
 }
 
 // getEndLineByte calculates the end byte index and offset
@@ -163,10 +159,10 @@ func (p positions) getEndLineByte(line string) (int, LineOffset) {
 	return endLine, LineOffset{Start: p.origStartLineByte, End: endLine}
 }
 
-// endLineCalc calculates the end byte/rune index
-func (p positions) endLineCalc(curCount int, lineCount int) int {
-	origEndLine := curCount + lineCount - 1
-	return origEndLine + p.leadingSpaces
+// getEndLineRune calculates the end rune index and offset
+func (p positions) getEndLineRune(line string) (int, LineOffset) {
+	endLine := p.endLineCalc(p.origStartLineRune, utf8.RuneCountInString(line))
+	return endLine, LineOffset{Start: p.origStartLineRune, End: endLine}
 }
 
 // returns the current viewable width (word + line)
@@ -211,6 +207,7 @@ func (w *wrapStateMachine) writeSpaceToLine(r rune) {
 
 	if w.pos.curLineWidth > 0 {
 		w.lineBuffer.WriteRune(r)
+		w.pos.curLineWidth += 1
 	} else {
 		w.pos.leadingSpaces += 1
 	}
@@ -263,6 +260,7 @@ func (w *wrapStateMachine) writeLine(hardBreak bool, endsSplit bool) {
 		OrigByteOffset:    origByteOffset,
 		OrigRuneOffset:    origRuneOffset,
 		SegmentInOrig:     w.pos.origLineSegment,
+		LastSegmentInOrig: hardBreak,
 		NotWithinLimit:    w.pos.curLineWidth > w.config.limit,
 		IsHardBreak:       hardBreak,
 		Width:             w.pos.curLineWidth,
@@ -397,11 +395,10 @@ func stringWrap(
 			switch r {
 			case ' ':
 				stateMachine.writeSpaceToLine(r)
-				positions.curLineWidth += 1
 			case '\n':
 				stateMachine.writeHardLine()
 				positions.incrementOrigLine()
-				positions.hardBreakReset()
+				positions.origLineSegment = 0
 			case '\t':
 				adjTabSize := stateMachine.writeTabToLine()
 				positions.curLineWidth += adjTabSize
@@ -435,6 +432,7 @@ func stringWrap(
 	lastWrappedLine := wrappedStringSeq.lastWrappedLine()
 	if !lastWrappedLine.IsHardBreak {
 		stateMachine.buffer.Truncate(stateMachine.buffer.Len() - 1)
+		lastWrappedLine.LastSegmentInOrig = true
 	}
 	return stateMachine.buffer.String(), &wrappedStringSeq, nil
 }

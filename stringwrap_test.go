@@ -128,6 +128,7 @@ func TestWrappedStringSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 0, End: 6},
 			OrigRuneOffset:    LineOffset{Start: 0, End: 6},
 			SegmentInOrig:     1,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             6,
@@ -139,6 +140,7 @@ func TestWrappedStringSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 6, End: 12},
 			OrigRuneOffset:    LineOffset{Start: 6, End: 12},
 			SegmentInOrig:     2,
+			LastSegmentInOrig: true,
 			NotWithinLimit:    false,
 			IsHardBreak:       true,
 			Width:             6,
@@ -147,9 +149,10 @@ func TestWrappedStringSeq(t *testing.T) {
 		{
 			CurLineNum:        3,
 			OrigLineNum:       2,
-			OrigByteOffset:    LineOffset{Start: 0, End: 8},
-			OrigRuneOffset:    LineOffset{Start: 0, End: 8},
+			OrigByteOffset:    LineOffset{Start: 12, End: 20},
+			OrigRuneOffset:    LineOffset{Start: 12, End: 20},
 			SegmentInOrig:     1,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             8,
@@ -158,20 +161,22 @@ func TestWrappedStringSeq(t *testing.T) {
 		{
 			CurLineNum:        4,
 			OrigLineNum:       2,
-			OrigByteOffset:    LineOffset{Start: 8, End: 14},
-			OrigRuneOffset:    LineOffset{Start: 8, End: 14},
+			OrigByteOffset:    LineOffset{Start: 20, End: 26},
+			OrigRuneOffset:    LineOffset{Start: 20, End: 26},
 			SegmentInOrig:     2,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
-			Width:             6, // need to look into this number
+			Width:             5,
 			EndsWithSplitWord: false,
 		},
 		{
 			CurLineNum:        5,
 			OrigLineNum:       2,
-			OrigByteOffset:    LineOffset{Start: 14, End: 23},
-			OrigRuneOffset:    LineOffset{Start: 14, End: 20},
+			OrigByteOffset:    LineOffset{Start: 26, End: 35},
+			OrigRuneOffset:    LineOffset{Start: 26, End: 32},
 			SegmentInOrig:     3,
+			LastSegmentInOrig: true,
 			NotWithinLimit:    false,
 			IsHardBreak:       true,
 			Width:             7,
@@ -180,9 +185,10 @@ func TestWrappedStringSeq(t *testing.T) {
 		{
 			CurLineNum:        6,
 			OrigLineNum:       3,
-			OrigByteOffset:    LineOffset{Start: 0, End: 5},
-			OrigRuneOffset:    LineOffset{Start: 0, End: 5},
+			OrigByteOffset:    LineOffset{Start: 35, End: 40},
+			OrigRuneOffset:    LineOffset{Start: 32, End: 37},
 			SegmentInOrig:     1,
+			LastSegmentInOrig: true,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             5,
@@ -193,7 +199,7 @@ func TestWrappedStringSeq(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("Wrapped String Test %d", idx+1), func(t *testing.T) {
 			wrappedLine := seq.WrappedLines[idx]
-			assert.ObjectsAreEqual(tt, wrappedLine)
+			assert.Equal(t, tt, wrappedLine)
 		})
 	}
 }
@@ -206,7 +212,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 	wrapped, seq, _ := StringWrapSplit(input, limit, tabSize)
 	assert.Equal(
 		t,
-		"Supercali-\nfragilist-\nicexpiali-\ndocious is\na long w-\nord often \nused to t-\nest wrapp-\ning behav-\nior.",
+		"Supercali-\nfragilist-\nicexpiali-\ndocious is\na long wo-\nrd often \nused to t-\nest wrapp-\ning behav-\nior.",
 		wrapped,
 	)
 
@@ -219,6 +225,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 0, End: 10},
 			OrigRuneOffset:    LineOffset{Start: 0, End: 10},
 			SegmentInOrig:     1,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             10,
@@ -230,6 +237,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 10, End: 20},
 			OrigRuneOffset:    LineOffset{Start: 10, End: 20},
 			SegmentInOrig:     2,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             10,
@@ -241,6 +249,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 20, End: 30},
 			OrigRuneOffset:    LineOffset{Start: 20, End: 30},
 			SegmentInOrig:     3,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             10,
@@ -252,6 +261,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 30, End: 40},
 			OrigRuneOffset:    LineOffset{Start: 30, End: 40},
 			SegmentInOrig:     4,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             10,
@@ -260,9 +270,10 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        5,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 40, End: 50},
-			OrigRuneOffset:    LineOffset{Start: 40, End: 50},
+			OrigByteOffset:    LineOffset{Start: 40, End: 51},
+			OrigRuneOffset:    LineOffset{Start: 40, End: 51},
 			SegmentInOrig:     5,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             10,
@@ -271,9 +282,10 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        6,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 50, End: 60},
-			OrigRuneOffset:    LineOffset{Start: 50, End: 60},
+			OrigByteOffset:    LineOffset{Start: 51, End: 60},
+			OrigRuneOffset:    LineOffset{Start: 51, End: 60},
 			SegmentInOrig:     6,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             10,
@@ -285,6 +297,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 60, End: 70},
 			OrigRuneOffset:    LineOffset{Start: 60, End: 70},
 			SegmentInOrig:     7,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             10,
@@ -296,6 +309,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 70, End: 80},
 			OrigRuneOffset:    LineOffset{Start: 70, End: 80},
 			SegmentInOrig:     8,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             10,
@@ -307,6 +321,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 80, End: 90},
 			OrigRuneOffset:    LineOffset{Start: 80, End: 90},
 			SegmentInOrig:     9,
+			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             10,
@@ -318,6 +333,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 			OrigByteOffset:    LineOffset{Start: 90, End: 94},
 			OrigRuneOffset:    LineOffset{Start: 90, End: 94},
 			SegmentInOrig:     10,
+			LastSegmentInOrig: true,
 			NotWithinLimit:    false,
 			IsHardBreak:       false,
 			Width:             4,
@@ -328,7 +344,7 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("Wrapped String Test %d", idx+1), func(t *testing.T) {
 			wrappedLine := seq.WrappedLines[idx]
-			assert.ObjectsAreEqual(tt, wrappedLine)
+			assert.Equal(t, tt, wrappedLine)
 		})
 	}
 }
