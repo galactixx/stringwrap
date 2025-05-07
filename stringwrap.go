@@ -3,17 +3,14 @@ package stringwrap
 import (
 	"bytes"
 	"errors"
-	"regexp"
-	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/galactixx/ansiwalker"
 	"github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 )
-
-var ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 // isWordyGrapheme returns true if the first rune in the grapheme cluster
 // is considered part of a word (i.e., a letter, number, or combining mark).
@@ -85,27 +82,6 @@ func (s *WrappedStringSeq) lastWrappedLine() *WrappedString {
 // appendWrappedSeq adds a new WrappedString to the existing slice
 func (s *WrappedStringSeq) appendWrappedSeq(wrapped WrappedString) {
 	s.WrappedLines = append(s.WrappedLines, wrapped)
-}
-
-// ansiRange marks a specific range where ANSI was found
-type ansiRange struct {
-	start int
-	end   int
-}
-
-// ansiRanges is a slice of ansiRange instances
-type ansiRanges struct{ ranges []*ansiRange }
-
-// clearRange deletes the first ansiRange instance from the slice
-func (r *ansiRanges) clearRange() { r.ranges = slices.Delete(r.ranges, 0, 1) }
-
-// nextRange returns the first ansiRange instance from the slice
-// if one exists, otherwise will return nil
-func (r *ansiRanges) nextRange() *ansiRange {
-	if len(r.ranges) > 0 {
-		return r.ranges[0]
-	}
-	return nil
 }
 
 // graphemeWordIter manages state for iterating through each word
@@ -360,30 +336,21 @@ func stringWrap(
 		},
 	}
 
-	// precompute all ANSI codes ahead of time using regex.
-	ansiRangesFound := ansiRegexp.FindAllStringIndex(str, -1)
-	ansiRanges := ansiRanges{ranges: []*ansiRange{}}
-
-	// turn all index ranges into a consolidated map for quick lookup
-	for _, idxRange := range ansiRangesFound {
-		ansiRanges.ranges = append(ansiRanges.ranges, &ansiRange{
-			start: idxRange[0], end: idxRange[1],
-		})
-	}
-
 	state := -1
 	idx := 0
 
 	// iterate through each rune in the string
 	for idx < len(str) {
-		r, rSize := utf8.DecodeRuneInString(str[idx:])
-		if rng := ansiRanges.nextRange(); rng != nil && idx == rng.start {
+		r, rSize, next, ok := ansiwalker.ANSIWalk(str, idx)
+		rIdx := next - rSize
+		if ok && rIdx > idx {
 			stateMachine.flushWordBuffer()
-			stateMachine.writeANSIToLine(str[rng.start:rng.end])
+			stateMachine.writeANSIToLine(str[idx:rIdx])
 			state = -1
-			idx = rng.end
-			ansiRanges.clearRange()
-		} else if r == '\u00A0' {
+		}
+		idx = rIdx
+
+		if r == '\u00A0' {
 			stateMachine.wordHasNbsp = true
 			stateMachine.writeRuneToWord(r)
 			positions.curWordWidth += 1
