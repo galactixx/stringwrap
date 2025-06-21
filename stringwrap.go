@@ -439,18 +439,23 @@ func stringWrap(
 		case unicode.IsSpace(r):
 			stateMachine.flushWordBuffer()
 
-			// All legacy whitespace is ignored and not written
-			// to the line buffer.
+			// Handle the different types of whitespace characters
+			// in the string (e.g., space, newline, tab, etc.).
 			switch r {
 			case ' ':
 				stateMachine.writeSpaceToLine(r)
-			case '\n':
+			case '\n', '\r', '\u0085', '\u2028', '\u2029':
 				stateMachine.writeHardLine()
 				positions.incrementOrigLine()
 				positions.origLineSegment = 0
 			case '\t':
 				adjTabSize := stateMachine.writeTabToLine()
 				positions.curLineWidth += adjTabSize
+			case '\v', '\f':
+				/* ignore */
+			default:
+				stateMachine.writeSpaceToLine(r)
+				positions.curLineWidth += runewidth.RuneWidth(r) - 1
 			}
 			state = -1
 			idx += rSize

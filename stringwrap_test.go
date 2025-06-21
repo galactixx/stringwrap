@@ -101,6 +101,34 @@ func TestStringWrap(t *testing.T) {
 			trimWhitespace: false,
 			splitWord:      true,
 		},
+		{
+			input:          "hello\rworld",
+			wrapped:        "hello\nworld",
+			limit:          10,
+			trimWhitespace: true,
+			splitWord:      false,
+		},
+		{
+			input:          "foo\u2028bar baz",
+			wrapped:        "foo\nbar\nbaz",
+			limit:          5,
+			trimWhitespace: true,
+			splitWord:      false,
+		},
+		{
+			input:          "Supercalifragilisticexpialidocious\vness",
+			wrapped:        "Supercali-\nfragilist-\nicexpiali-\ndociousne-\nss",
+			limit:          10,
+			trimWhitespace: true,
+			splitWord:      true,
+		},
+		{
+			input:          "foo\u2028barbazbaz",
+			wrapped:        "foo\nbarb-\nazbaz",
+			limit:          5,
+			trimWhitespace: true,
+			splitWord:      true,
+		},
 	}
 
 	for idx, tt := range tests {
