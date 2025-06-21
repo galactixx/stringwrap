@@ -13,10 +13,10 @@ import (
 )
 
 // isWordyGrapheme returns true if the first rune in the grapheme cluster
-// is considered part of a word (i.e., a letter, number, or combining mark).
+// is considered part of a word (i.e., a letter or number).
 func isWordyGrapheme(grapheme string) bool {
 	r, _ := utf8.DecodeRuneInString(grapheme)
-	return unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsMark(r)
+	return unicode.IsLetter(r) || unicode.IsNumber(r)
 }
 
 // btoi is a simple function to convert a boolean to an integer
@@ -35,6 +35,11 @@ type LineOffset struct {
 	End   int
 }
 
+// WrappedString represents a single wrapped segment of the original
+// unwrapped string, along with metadata about the wrapping process.
+//
+// The WrappedString struct is used to store the metadata for each wrapped
+// segment of the original unwrapped string.
 type WrappedString struct {
 	// The current wrapped line number (after wrapping).
 	CurLineNum int
@@ -95,11 +100,12 @@ func (s *WrappedStringSeq) appendWrappedSeq(wrapped WrappedString) {
 // graphemeWordIter manages state for iterating through each word
 // to determine the split point when word splitting is enabled
 type graphemeWordIter struct {
-	subWordBuffer   bytes.Buffer
-	subWordWidth    int
-	preLimitCluster string
-	cluster         string
-	graphemes       *uniseg.Graphemes
+	subWordBuffer    bytes.Buffer
+	subWordWidth     int
+	preLimitCluster  string
+	nextClusterWidth int
+	cluster          string
+	graphemes        *uniseg.Graphemes
 }
 
 // needsHyphen returns true if a hyphen should be added when
@@ -108,18 +114,45 @@ func (g *graphemeWordIter) needsHyphen() bool {
 	return isWordyGrapheme(g.cluster) && isWordyGrapheme(g.preLimitCluster)
 }
 
+func (g *graphemeWordIter) totalWidth(lineWidth int) int {
+	return g.subWordWidth + lineWidth + g.nextClusterWidth
+}
+
 // iter iterates through the word buffer until the limit
-// is exceeded
+// is exceeded or the word buffer is empty.
 func (g *graphemeWordIter) iter(lineWidth int, limit int) {
-	for g.graphemes.Next() && g.subWordWidth+lineWidth < limit {
+	for g.graphemes.Next() && g.totalWidth(lineWidth) < limit {
 		g.preLimitCluster = g.cluster
 		g.cluster = g.graphemes.Str()
-		g.subWordWidth += runewidth.StringWidth(g.cluster)
+		g.subWordWidth += g.nextClusterWidth
+		g.nextClusterWidth = runewidth.StringWidth(g.cluster)
 		g.subWordBuffer.WriteString(g.preLimitCluster)
 	}
 }
 
 // positions holds state for a variety of positional info
+//
+// State Management:
+// The string wrapping algorithm uses two state containers:
+// 1. positions: Tracks counters and offsets
+// 2. wrapStateMachine: Manages buffers and coordinates transitions
+//
+// Counter Classification:
+// LINE-LOCAL (reset when line completes):
+// - curLineWidth: Visual width of current line
+// - curLineNum: Current wrapped line number
+// - origLineSegment: Segment number within original line
+// - timmedWhiteSpace: Count of trimmed whitespace
+//
+// WORD-LOCAL (reset when word completes):
+// - curWordWidth: Visual width of current word
+//
+// PERSISTENT (maintained across entire process):
+// - origLineNum: Original unwrapped line number
+// - origStartLineByte: Byte offset where line started
+// - origStartLineRune: Rune offset where line started
+//
+// Flow: Characters → wordBuffer (curWordWidth) → lineBuffer (curLineWidth) → final output
 type positions struct {
 	curLineWidth      int
 	curLineNum        int
@@ -132,23 +165,24 @@ type positions struct {
 }
 
 // endLineCalc calculates the end byte/rune index
-func (p positions) endCalc(count int, lineCount int, hardBreak bool) int {
-	origEndLine := count + lineCount - 1 + btoi(hardBreak)
+func (p positions) endCalc(count int, lineCount int, hard bool, split bool) int {
+	origEndLine := count + lineCount - 1 + btoi(hard) - btoi(split)
 	return origEndLine + p.timmedWhiteSpace
 }
 
 // getEndLineByte calculates the end byte index and offset
-func (p positions) endByte(line string, hardBreak bool) (int, LineOffset) {
-	endLine := p.endCalc(p.origStartLineByte, len(line), hardBreak)
+func (p positions) endByte(line string, hard bool, split bool) (int, LineOffset) {
+	endLine := p.endCalc(p.origStartLineByte, len(line), hard, split)
 	return endLine, LineOffset{Start: p.origStartLineByte, End: endLine}
 }
 
 // getEndLineRune calculates the end rune index and offset
-func (p positions) endRune(line string, hardBreak bool) (int, LineOffset) {
+func (p positions) endRune(line string, hard bool, split bool) (int, LineOffset) {
 	endLine := p.endCalc(
 		p.origStartLineRune,
 		utf8.RuneCountInString(line),
-		hardBreak,
+		hard,
+		split,
 	)
 	return endLine, LineOffset{Start: p.origStartLineRune, End: endLine}
 }
@@ -212,9 +246,15 @@ func (w *wrapStateMachine) writeRuneToWord(r rune) {
 
 // writeTabToLine appends the given tab size in spaces to the lineBuffer.
 func (w *wrapStateMachine) writeTabToLine() int {
-	adjTabSize := w.config.tabSize - (w.pos.curLineWidth % w.config.tabSize)
+	var adjTabSize = 0
+
+	if w.config.tabSize > 0 {
+		adjTabSize = w.config.tabSize - (w.pos.curLineWidth % w.config.tabSize)
+	}
 	w.flushLineBuffer(adjTabSize)
 
+	// if the line buffer is empty, adjust the tab size based on the
+	// trimWhitespace flag.
 	if w.lineBuffer.Len() == 0 {
 		if w.config.trimWhitespace {
 			adjTabSize = 0
@@ -223,6 +263,7 @@ func (w *wrapStateMachine) writeTabToLine() int {
 			adjTabSize = w.config.tabSize
 		}
 	}
+
 	tabSpaces := strings.Repeat(" ", adjTabSize)
 	w.lineBuffer.WriteString(tabSpaces)
 	return adjTabSize
@@ -248,12 +289,16 @@ func (w *wrapStateMachine) writeLine(hardBreak bool, endsSplit bool) {
 	}
 	newLine += "\n"
 
+	// write the new line to the buffer and reset the line buffer.
 	w.buffer.WriteString(newLine)
 	w.pos.origLineSegment += 1
 	w.lineBuffer.Reset()
-	origEndLineByte, origByteOffset := w.pos.endByte(newLine, hardBreak)
-	origEndLineRune, origRuneOffset := w.pos.endRune(newLine, hardBreak)
 
+	// calculate the original end line byte and rune offsets
+	origEndLineByte, origByteOffset := w.pos.endByte(newLine, hardBreak, endsSplit)
+	origEndLineRune, origRuneOffset := w.pos.endRune(newLine, hardBreak, endsSplit)
+
+	// create a new wrapped string and add it to the sequence
 	wrappedString := WrappedString{
 		OrigLineNum:       w.pos.origLineNum,
 		CurLineNum:        w.pos.curLineNum,
@@ -302,6 +347,9 @@ func (w *wrapStateMachine) flushWordBuffer() {
 	}
 
 	if exceedsLimit {
+		// if word splitting is allowed and the word does not contain a
+		// non-breaking space, split the word into graphemes and write
+		// the graphemes to the line buffer.
 		if w.config.splitWord && !w.wordHasNbsp {
 			gIter := graphemeWordIter{
 				graphemes: uniseg.NewGraphemes(w.wordBuffer.String()),
@@ -311,11 +359,15 @@ func (w *wrapStateMachine) flushWordBuffer() {
 			w.lineBuffer.WriteString(gIter.subWordBuffer.String())
 			if gIter.needsHyphen() {
 				w.lineBuffer.WriteRune('-')
+				w.pos.curLineWidth += 1
 			}
+
+			// write the graphemes to the line buffer and increment the
+			// line width by the width of the graphemes.
 			w.pos.curLineWidth += gIter.subWordWidth
 			w.writeSoftLine(gIter.needsHyphen())
 			w.wordBuffer.Next(gIter.subWordBuffer.Len())
-			w.pos.curWordWidth = runewidth.StringWidth(w.wordBuffer.String())
+			w.pos.curWordWidth -= gIter.subWordWidth
 			w.flushWordBuffer()
 		} else {
 			if w.pos.curLineWidth > 0 {
@@ -337,14 +389,16 @@ func stringWrap(
 		return "", nil, errors.New("limit must be greater than one")
 	}
 
-	var wrappedStringSeq WrappedStringSeq = WrappedStringSeq{
+	// initialize the wrapped string sequence and set the configuration
+	// for the wrapping process.
+	wrappedStringSeq := WrappedStringSeq{
 		WordSplitAllowed: splitWord,
 		TabSize:          tabSize,
 		Limit:            limit,
 	}
 
 	// manage the current string line number taking into account wrapping
-	var positions positions = positions{
+	positions := positions{
 		curLineNum:  1,
 		origLineNum: 1,
 	}
@@ -375,15 +429,18 @@ func stringWrap(
 		}
 		idx = rIdx
 
-		if r == '\u00A0' {
+		// handle the different types of runes in the string
+		switch {
+		case r == '\u00A0':
 			stateMachine.wordHasNbsp = true
 			stateMachine.writeRuneToWord(r)
 			positions.curWordWidth += 1
 			idx += rSize
-		} else if unicode.IsSpace(r) {
+		case unicode.IsSpace(r):
 			stateMachine.flushWordBuffer()
 
 			// All legacy whitespace is ignored and not written
+			// to the line buffer.
 			switch r {
 			case ' ':
 				stateMachine.writeSpaceToLine(r)
@@ -397,10 +454,13 @@ func stringWrap(
 			}
 			state = -1
 			idx += rSize
-		} else {
+		default:
+			// Step through the string one grapheme at a time.
 			cluster, _, _, st := uniseg.StepString(str[idx:], state)
 			state = st
 
+			// If the cluster is not empty, write the cluster to the word buffer
+			// and increment the word width.
 			if cluster != "" {
 				clusterWidth := runewidth.StringWidth(cluster)
 				positions.curWordWidth += clusterWidth
@@ -415,12 +475,14 @@ func stringWrap(
 	}
 
 	// write word and line buffers after iteration is done
+	// if the word buffer is not empty, write the word to the line buffer.
 	stateMachine.flushWordBuffer()
 	if stateMachine.lineBuffer.Len() > 0 {
 		stateMachine.writeSoftLine(false)
 	}
 
 	// remove the last new line from the wrapped buffer
+	// if the last line is not a hard break.
 	lastWrappedLine := wrappedStringSeq.lastWrappedLine()
 	if !lastWrappedLine.IsHardBreak {
 		stateMachine.buffer.Truncate(stateMachine.buffer.Len() - 1)
@@ -429,33 +491,46 @@ func stringWrap(
 	return stateMachine.buffer.String(), &wrappedStringSeq, nil
 }
 
-// StringWrap wraps the input string to the specified viewable width limit,
-// expanding tabs using the given tab size. It preserves word boundaries
-// and does not split words across lines.
+// StringWrap wraps the input string to the specified viewable-width limit,
+// expanding tabs using the given tab size. It preserves *word boundaries*
+// and never splits words across lines.
 //
 // If trimWhitespace is true, leading and trailing whitespace on each wrapped
-// line will be stripped before the newline is appended.
+// line is stripped before the newline is appended.
 //
 // ANSI escape sequences are preserved without contributing to visual width.
-// Returns the wrapped string and a metadata sequence describing each
-// wrapped line.
+//
+// NOTE: Even though this variant does **not** split words, it still walks the
+// text by Unicode *grapheme clusters* (using uniseg) and measures each cluster
+// with go-runewidth.  That is required for perfect width accounting with
+// sequences such as ZWJ emojis (e.g. "👩‍💻"), base-plus-combining marks, and
+// full-width spaces.  A plain rune scan would over-count their columns and
+// wrap too early.
+//
+// Returns the wrapped string and a metadata slice (WrappedStringSeq) that maps
+// every wrapped segment back to its byte/rune span in the original input.
 func StringWrap(str string, limit int, tabSize int, trimWhitespace bool) (
 	string, *WrappedStringSeq, error,
 ) {
 	return stringWrap(str, limit, tabSize, trimWhitespace, false)
 }
 
-// StringWrapSplit wraps the input string to the specified viewable width
-// limit, expanding tabs using the given tab size. Unlike StringWrap, this
-// function allows words to be split across lines if they exceed the
-// wrapping limit.
+// StringWrapSplit wraps the input string to the specified viewable-width
+// limit, expanding tabs using the given tab size.  Unlike StringWrap, this
+// variant *may* split a word across lines if it exceeds the limit.
 //
 // If trimWhitespace is true, leading and trailing whitespace on each wrapped
-// line will be stripped before the newline is appended.
+// line is stripped before the newline is appended.
 //
 // ANSI escape sequences are preserved without contributing to visual width.
-// Returns the wrapped string and a metadata sequence describing each
-// wrapped line.
+//
+// Because word splitting must occur only at safe grapheme boundaries, this
+// function uses exactly the same grapheme-aware width logic described above;
+// the only behavioural difference is that it inserts split points (and an
+// optional hyphen) when necessary.
+//
+// Returns the wrapped string and a metadata sequence describing each wrapped
+// line.
 func StringWrapSplit(str string, limit int, tabSize int, trimWhitespace bool) (
 	string, *WrappedStringSeq, error,
 ) {

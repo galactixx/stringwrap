@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// stringWrapTestCase is a struct that contains the input string, the expected
+// wrapped string, the limit, the trimWhitespace flag, and the splitWord flag.
 type stringWrapTestCase struct {
 	input          string
 	wrapped        string
@@ -16,6 +18,8 @@ type stringWrapTestCase struct {
 	splitWord      bool
 }
 
+// wrapString is a helper function that wraps a string using the StringWrap
+// or StringWrapSplit function based on the splitWord flag.
 func wrapString(tt stringWrapTestCase) (string, *WrappedStringSeq, error) {
 	if tt.splitWord {
 		return StringWrapSplit(tt.input, tt.limit, 4, tt.trimWhitespace)
@@ -24,7 +28,8 @@ func wrapString(tt stringWrapTestCase) (string, *WrappedStringSeq, error) {
 	}
 }
 
-func TestWrappingStrings(t *testing.T) {
+// TestStringWrap tests the StringWrap function with a variety of test cases.
+func TestStringWrap(t *testing.T) {
 	tests := []stringWrapTestCase{
 		{
 			input:          "The quick brown fox jumps over the lazy dog",
@@ -89,6 +94,13 @@ func TestWrappingStrings(t *testing.T) {
 			trimWhitespace: false,
 			splitWord:      false,
 		},
+		{
+			input:          "e\u0301clair",
+			wrapped:        "é-\nc-\nl-\na-\nir",
+			limit:          2,
+			trimWhitespace: false,
+			splitWord:      true,
+		},
 	}
 
 	for idx, tt := range tests {
@@ -101,7 +113,9 @@ func TestWrappingStrings(t *testing.T) {
 	}
 }
 
-func TestWrappedStringSeq(t *testing.T) {
+// TestStringWrap_WrappedStringSeq tests the WrappedStringSeq struct with a
+// variety of test cases.
+func TestStringWrap_WrappedStringSeq(t *testing.T) {
 	input := "Hello world!\nLine two with 🌟stars\nFinal"
 	limit := 8
 	tabSize := 4
@@ -194,7 +208,9 @@ func TestWrappedStringSeq(t *testing.T) {
 	}
 }
 
-func TestWrappedStringSplitSeq(t *testing.T) {
+// TestStringWrapSplit_WrappedStringSeq tests the WrappedStringSeq struct with
+// a variety of test cases.
+func TestStringWrapSplit_WrappedStringSeq(t *testing.T) {
 	input := "Supercalifragilisticexpialidocious is a long word often used to test wrapping behavior."
 	limit := 10
 	tabSize := 4
@@ -212,8 +228,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        1,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 0, End: 10},
-			OrigRuneOffset:    LineOffset{Start: 0, End: 10},
+			OrigByteOffset:    LineOffset{Start: 0, End: 9},
+			OrigRuneOffset:    LineOffset{Start: 0, End: 9},
 			SegmentInOrig:     1,
 			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
@@ -224,8 +240,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        2,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 10, End: 20},
-			OrigRuneOffset:    LineOffset{Start: 10, End: 20},
+			OrigByteOffset:    LineOffset{Start: 9, End: 18},
+			OrigRuneOffset:    LineOffset{Start: 9, End: 18},
 			SegmentInOrig:     2,
 			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
@@ -236,8 +252,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        3,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 20, End: 30},
-			OrigRuneOffset:    LineOffset{Start: 20, End: 30},
+			OrigByteOffset:    LineOffset{Start: 18, End: 27},
+			OrigRuneOffset:    LineOffset{Start: 18, End: 27},
 			SegmentInOrig:     3,
 			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
@@ -248,8 +264,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        4,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 30, End: 40},
-			OrigRuneOffset:    LineOffset{Start: 30, End: 40},
+			OrigByteOffset:    LineOffset{Start: 27, End: 37},
+			OrigRuneOffset:    LineOffset{Start: 27, End: 37},
 			SegmentInOrig:     4,
 			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
@@ -260,8 +276,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        5,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 40, End: 51},
-			OrigRuneOffset:    LineOffset{Start: 40, End: 51},
+			OrigByteOffset:    LineOffset{Start: 37, End: 47},
+			OrigRuneOffset:    LineOffset{Start: 37, End: 47},
 			SegmentInOrig:     5,
 			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
@@ -272,8 +288,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        6,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 51, End: 61},
-			OrigRuneOffset:    LineOffset{Start: 51, End: 61},
+			OrigByteOffset:    LineOffset{Start: 47, End: 56},
+			OrigRuneOffset:    LineOffset{Start: 47, End: 56},
 			SegmentInOrig:     6,
 			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
@@ -284,8 +300,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        7,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 61, End: 71},
-			OrigRuneOffset:    LineOffset{Start: 61, End: 71},
+			OrigByteOffset:    LineOffset{Start: 56, End: 65},
+			OrigRuneOffset:    LineOffset{Start: 56, End: 65},
 			SegmentInOrig:     7,
 			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
@@ -296,8 +312,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        8,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 71, End: 81},
-			OrigRuneOffset:    LineOffset{Start: 71, End: 81},
+			OrigByteOffset:    LineOffset{Start: 65, End: 74},
+			OrigRuneOffset:    LineOffset{Start: 65, End: 74},
 			SegmentInOrig:     8,
 			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
@@ -308,8 +324,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        9,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 81, End: 91},
-			OrigRuneOffset:    LineOffset{Start: 81, End: 91},
+			OrigByteOffset:    LineOffset{Start: 74, End: 83},
+			OrigRuneOffset:    LineOffset{Start: 74, End: 83},
 			SegmentInOrig:     9,
 			LastSegmentInOrig: false,
 			NotWithinLimit:    false,
@@ -320,8 +336,8 @@ func TestWrappedStringSplitSeq(t *testing.T) {
 		{
 			CurLineNum:        10,
 			OrigLineNum:       1,
-			OrigByteOffset:    LineOffset{Start: 91, End: 95},
-			OrigRuneOffset:    LineOffset{Start: 91, End: 95},
+			OrigByteOffset:    LineOffset{Start: 83, End: 87},
+			OrigRuneOffset:    LineOffset{Start: 83, End: 87},
 			SegmentInOrig:     10,
 			LastSegmentInOrig: true,
 			NotWithinLimit:    false,
