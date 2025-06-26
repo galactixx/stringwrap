@@ -6,32 +6,29 @@ Stringwrap is a Go package for wrapping strings by visual width with optional wo
 
 ## ✨ **Features**
 
-This library offers robust string wrapping capabilities with a focus on accurate visual representation and detailed metadata:
+**General Wrapping**
+* Ignores ANSI escape codes for width calculations while preserving them in the output.
+* Correctly processes Unicode grapheme clusters.
+* Supports configurable tab sizes.
+* Respects hard breaks (`\n`) in the input string.
+* Provides optional word splitting for finer-grained control.
+* Handles non-breaking spaces (`\u00A0`) to prevent unwanted line breaks.
 
-* **Intelligent Wrapping:** Adapts to the **viewable width** by leveraging the `runewidth` library for precise character width calculation.
-* **Comprehensive Text Handling:**
-    * Ignores ANSI escape codes for width calculations while preserving them in the output.
-    * Correctly processes Unicode grapheme clusters, ensuring accurate wrapping of emojis and accented characters.
-    * Supports configurable tab sizes.
-    * Respects hard breaks (`\n`) in the input string.
-    * Provides optional word splitting for finer-grained control.
-    * Handles non-breaking spaces (`\u00A0`) to prevent unwanted line breaks.
-* **Detailed Line Metadata:** For each wrapped line, the library provides valuable information:
-    * Byte and rune offsets within the original string.
-    * The visual width of the wrapped line.
-    * The index of the segment from the original line that this wrapped line belongs to.
-    * An indication of whether the line ended due to a hard break or soft wrapping.
-    * A flag indicating if the segment ends with a word that was split during wrapping.
+**Wrapped-Line Metadata**
+* Byte and rune offsets within the original string.
+* The visual width of the wrapped line.
+* The index of the segment from the original line that this wrapped line belongs to.
+* An indication of whether the line ended due to a hard break or soft wrapping.
+* A flag indicating if the segment ends with a word that was split during wrapping.
 
 ## 💡 **Why Grapheme Clusters Matter**
 
 Both `StringWrap` and `StringWrapSplit` use Unicode grapheme cluster parsing (via the `uniseg` library) rather than simple rune iteration. This is crucial for accurate width calculation with complex Unicode sequences:
 
-* **ZWJ Emojis:** Sequences like "👩‍💻" (woman technologist) contain multiple runes but display as a single character
-* **Combining Marks:** Characters like "é" (e + combining acute accent) must be treated as one unit
-* **Full-width Characters:** Asian characters and emojis that occupy two columns
+* **ZWJ Emojis:** Sequences like "👩‍💻" contain multiple runes but display as a single character
+* **Combining Marks:** Characters like "é" must be treated as one unit
 
-While this approach is slower than rune-based processing, it prevents incorrect wrapping that would occur with naive rune counting. For applications requiring precise visual alignment (terminals, editors, formatted output), this accuracy is essential.
+While this approach is slower than rune-based processing, it prevents incorrect wrapping that would occur with naive rune counting.
 
 ## 🚀 **Getting Started**
 
