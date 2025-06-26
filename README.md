@@ -21,14 +21,7 @@ Stringwrap is a Go package for wrapping strings by visual width with optional wo
 * An indication of whether the line ended due to a hard break or soft wrapping.
 * A flag indicating if the segment ends with a word that was split during wrapping.
 
-## 💡 **Why Grapheme Clusters Matter**
-
-Both `StringWrap` and `StringWrapSplit` use Unicode grapheme cluster parsing (via the `uniseg` library) rather than simple rune iteration. This is crucial for accurate width calculation with complex Unicode sequences:
-
-* **ZWJ Emojis:** Sequences like "👩‍💻" contain multiple runes but display as a single character
-* **Combining Marks:** Characters like "é" must be treated as one unit
-
-While this approach is slower than rune-based processing, it prevents incorrect wrapping that would occur with naive rune counting.
+Both `StringWrap` and `StringWrapSplit` use Unicode grapheme cluster parsing (via the `uniseg` library) along with rune iteration.
 
 ## 🚀 **Getting Started**
 
