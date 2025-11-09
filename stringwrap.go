@@ -89,7 +89,11 @@ type WrappedStringSeq struct {
 
 // lastWrappedLine pulls the last wrapped line that has been parsed
 func (s *WrappedStringSeq) lastWrappedLine() *WrappedString {
-	return &s.WrappedLines[len(s.WrappedLines)-1]
+	n := len(s.WrappedLines)
+	if n == 0 {
+		return nil
+	}
+	return &s.WrappedLines[n-1]
 }
 
 // appendWrappedSeq adds a new WrappedString to the existing slice
@@ -489,7 +493,7 @@ func stringWrap(
 	// remove the last new line from the wrapped buffer
 	// if the last line is not a hard break.
 	lastWrappedLine := wrappedStringSeq.lastWrappedLine()
-	if !lastWrappedLine.IsHardBreak {
+	if lastWrappedLine != nil && !lastWrappedLine.IsHardBreak {
 		stateMachine.buffer.Truncate(stateMachine.buffer.Len() - 1)
 		lastWrappedLine.LastSegmentInOrig = true
 	}
